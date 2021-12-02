@@ -63,10 +63,13 @@ extern "C" {
     fmmap_os_spec *os_spec;
   } fmmap_file;
 
-  FMMAPDEF fmmap_file *fmmap_open_file  (const char *file_path);
-  FMMAPDEF int        fmmap_close_file (fmmap_file *file);
-  FMMAPDEF int        fmmap_mmap_file  (char **restrict buff, const fmmap_file *restrict file);
-  FMMAPDEF int        fmmap_unmap_file (char **restrict buff, const fmmap_file *restrict file);
+  FMMAPDEF fmmap_file *fmmap_open_file(const char *restrict file_path,
+                                       const char *restrict mode);
+  FMMAPDEF int        fmmap_close_file(fmmap_file *file);
+  FMMAPDEF int        fmmap_mmap_file(char **restrict buff,
+                                      const fmmap_file *restrict file);
+  FMMAPDEF int        fmmap_unmap_file(char **restrict buff,
+                                       const fmmap_file *restrict file);
 
 #ifdef __cplusplus
 }
@@ -154,7 +157,7 @@ extern "C" {
   static int
   fmmap_file_size(fmmap_file *file)
   {
-    int ret;
+    int ret = 0;
     fmmap_os_spec *spec;
   
     if (file == NULL)
@@ -185,16 +188,16 @@ extern "C" {
   }
 
   FMMAPDEF fmmap_file *
-  fmmap_open_file(const char *file_path)
+  fmmap_open_file(const char *restrict file_path, const char *restrict mode)
   {
     size_t length;
     FILE *f;
     fmmap_file *file;
 
-    if (file_path == NULL)
+    if (file_path == NULL || mode == NULL)
       return NULL;
   
-    f = fopen(file_path, "r");
+    f = fopen(file_path, mode);
     if (f == NULL)
       {
         fprintf(stderr, "ERROR: Can't open the file '%s'\n", file_path);
@@ -277,18 +280,18 @@ extern "C" {
   FMMAPDEF int
   fmmap_unmap_file(char **restrict buff, const fmmap_file *restrict file)
   {
-    int ret = 0;
+    int ret = -1;
     fmmap_os_spec *spec;
 
     if (file == NULL || buff == NULL || *buff == NULL)
-      return -1;
+      return ret;
   
-    if (file->size <= 0)
-      return -1;
+    if (file->size == 0)
+      return ret;
 
     spec = (fmmap_os_spec *)file->os_spec;
     if (spec == NULL)
-      return -1;
+      return ret;
   
 #if defined(__FMMAP_UNIX__)
     ret = munmap(*buff, file->size);
@@ -302,7 +305,7 @@ extern "C" {
 #endif /* __FMMAP_WIN__ */
   
     if (ret != 0)
-      return -1;
+      return ret;
   
     *buff = NULL;
   

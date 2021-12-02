@@ -7,7 +7,7 @@ int
 main(int argc, char *argv[])
 {
   const char *str;
-  fmmap_file *f = fmmap_open_file("./test.c");
+  fmmap_file *f = fmmap_open_file("./test.c", "r");
   fmmap_mmap_file((char **)&str, f);
 
   printf("%s\n", str);
