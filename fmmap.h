@@ -27,6 +27,7 @@
 #endif
 
 #if defined __FMMAP_UNIX__
+#define _POSIX_C_SOURCE 1
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -201,7 +202,7 @@ extern "C" {
       }
 
     file = (fmmap_file *)malloc(sizeof(fmmap_file));
-    length = strnlen(file_path, FILENAME_MAX) + 1; 
+    length = strlen(file_path) + 1; 
 
     file->stream = f;
     file->name = malloc(length);

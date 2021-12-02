@@ -1,7 +1,7 @@
-#include <stdio.h>
-
 #define FMMAP_IMPLEMENTATION
 #include "fmmap.h"
+
+#include <stdio.h> /* fmmap.h needs to be included before stdio.h */
 
 int
 main(int argc, char *argv[])
