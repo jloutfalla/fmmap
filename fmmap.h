@@ -54,6 +54,14 @@ extern "C" {
     #define FMMAPDEF extern
   #endif
 #endif
+
+#ifndef FMMAP_LOG
+  #define FMMAP_LOG(...)                          \
+    {                                             \
+      fprintf(stderr, __VA_ARGS__);               \
+      fputc('\n', stderr);                        \
+    }
+#endif
   
   typedef struct os_spec fmmap_os_spec;
   typedef struct {
@@ -98,10 +106,16 @@ extern "C" {
     fmmap_os_spec *spec;
 
     if (file == NULL)
-      return -1;
+      {
+        FMMAP_LOG("No file structure provided");
+        return -1;
+      }
 
     if (file->os_spec == NULL)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: No OS specific structure allocated", file->name);
+        return -1;
+      }
 
     spec = file->os_spec;
     ret = 0;
@@ -130,23 +144,36 @@ extern "C" {
     fmmap_os_spec *spec;
 
     if (file == NULL)
-      return -1;
+      {
+        FMMAP_LOG("No file structure provided");
+        return -1;
+      }
   
     if (file->os_spec != NULL)
-      fmmap_file_release_os(file);
+      {
+        FMMAP_LOG("`%s`: File OS specific structure already allocated", file->name);
+        fmmap_file_release_os(file);
+      }
   
     spec = (fmmap_os_spec *)malloc(sizeof(fmmap_os_spec));
     if (spec == NULL)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: Can't allocate OS specific structure", file->name);
+        return -1;
+      }
       
     file->os_spec = spec;
   
     spec->fd = fileno(file->stream);
     ret = (spec->fd == -1);
+    if (ret != 0)
+      FMMAP_LOG("`%s`: Can't retrieve the file descriptor", file->name);
   
 #if defined(__FMMAP_WIN__)
     spec->handle_file = (HANDLE)_get_osfhandle(spec->fd);
     ret = (spec->handle_file == INVALID_HANDLE_VALUE);
+    if (ret != 0)
+      FMMAP_LOG("`%s`: Invalid file handler retrieved", file->name);
 
     spec->handle_map = INVALID_HANDLE_VALUE;
 #endif /* __FMMAP_WIN__ */
@@ -161,16 +188,24 @@ extern "C" {
     fmmap_os_spec *spec;
   
     if (file == NULL)
-      return -1;
+      {
+        FMMAP_LOG("No file structure provided");
+        return -1;
+      }
 
     spec = (fmmap_os_spec *)file->os_spec;
     if (spec == NULL)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: No OS specific structure allocated", file->name);
+        return -1;
+      }
   
 #if defined(__FMMAP_UNIX__)
     struct stat stats;
   
     ret = fstat(spec->fd, &stats);
+    if (ret != 0)
+      FMMAP_LOG("`%s`: Can't retrieve file stats", file->name);
 
     if (ret == 0)
       file->size = stats.st_size;
@@ -181,6 +216,10 @@ extern "C" {
       {
         file->size = ret;
         ret = 0;
+      }
+    else
+      {
+        FMMAP_LOG("`%s`: Can't retrieve the size", file->name);
       }
 #endif /* __FMMAP_WIN__ */
   
@@ -195,12 +234,15 @@ extern "C" {
     fmmap_file *file;
 
     if (file_path == NULL || mode == NULL)
-      return NULL;
+      {
+        FMMAP_LOG("No file path and/or no opening mode provided");
+        return NULL;
+      }
   
     f = fopen(file_path, mode);
     if (f == NULL)
       {
-        fprintf(stderr, "ERROR: Can't open the file '%s'\n", file_path);
+        FMMAP_LOG("`%s`: Can't open the file", file_path);
         return NULL;
       }
 
@@ -226,11 +268,17 @@ extern "C" {
     int ret;
 
     if (file == NULL)
-      return -1;
+      {
+        FMMAP_LOG("No file structure provided");
+        return -1;
+      }
   
     ret = fclose(file->stream);
     if (ret != 0)
-      return ret;
+      {
+        FMMAP_LOG("`%s`: Can't close the file", file->name);
+        return ret;
+      }
 
     free((void*)file->name);
   
@@ -251,11 +299,17 @@ extern "C" {
     fmmap_os_spec *spec;
 
     if (file == NULL || buff == NULL)
-      return -1;
+      {
+        FMMAP_LOG("No file path and/or no opening mode provided");
+        return -1;
+      }
 
     spec = (fmmap_os_spec *)file->os_spec;
     if (spec == NULL)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: No OS specific structure allocated", file->name);
+        return -1;
+      }
   
 #if defined(__FMMAP_UNIX__)
     tmp_buff = mmap(NULL, file->size, PROT_READ, MAP_PRIVATE, spec->fd, 0);
@@ -263,14 +317,20 @@ extern "C" {
 #elif defined(__FMMAP_WIN__)
     spec->handle_map = CreateFileMapping(spec->handle_file, NULL, PAGE_READONLY, 0, 0, NULL);
     if (spec->handle_map == INVALID_HANDLE_VALUE)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: Invalid handler retrieved when creating memory mapping", file->name);
+        return -1;
+      }
   
     tmp_buff = MapViewOfFile(spec->handle_map, FILE_MAP_READ, 0, 0, 0);
     test_ptr = NULL;
 #endif
   
     if (tmp_buff == test_ptr)
-      return -1;
+      {
+        FMMAP_LOG("`%s`: Can't memory map", file->name);
+        return -1;
+      }
 
     *buff = tmp_buff;
   
@@ -284,14 +344,23 @@ extern "C" {
     fmmap_os_spec *spec;
 
     if (file == NULL || buff == NULL || *buff == NULL)
-      return ret;
+      {
+        FMMAP_LOG("No file structure and/or buffer provided");
+        return ret;
+      }
   
     if (file->size == 0)
-      return ret;
+      {
+        FMMAP_LOG("`%s`: The size of the file is invalid", file->name);
+        return ret;
+      }
 
     spec = (fmmap_os_spec *)file->os_spec;
     if (spec == NULL)
-      return ret;
+      {
+        FMMAP_LOG("`%s`: No OS specific structure allocated", file->name);
+        return ret;
+      }
   
 #if defined(__FMMAP_UNIX__)
     ret = munmap(*buff, file->size);
@@ -305,7 +374,10 @@ extern "C" {
 #endif /* __FMMAP_WIN__ */
   
     if (ret != 0)
-      return ret;
+      {
+        FMMAP_LOG("`%s`: Can't unmap memory", file->name);
+        return ret;
+      }
   
     *buff = NULL;
   
