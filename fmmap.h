@@ -27,7 +27,9 @@
 #endif
 
 #if defined __FMMAP_UNIX__
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 1
+#endif /* _POSIX_C_SOURCE */
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
